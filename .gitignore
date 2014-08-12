@@ -1,4 +1,15 @@
+# build
 node_modules
+npm-debug.log
 bower_components
-
 public
+
+# dev
+tmp
+*.sublime-*
+
+# system
+.DS_Store*
+ehthumbs.db
+Icon?
+Thumbs.db
