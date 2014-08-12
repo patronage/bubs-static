@@ -1,0 +1,12 @@
+html, body {
+    font-family: $font-sans;
+    font-size: $base-font-size;
+    p {
+        color: $text-color;
+    }
+    h1 {
+        color: $heading-color;
+        font-size: 3.5em;
+        font-weight: 400;
+    }
+}

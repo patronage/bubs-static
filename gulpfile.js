@@ -1,13 +1,12 @@
 'use strict';
 
 // load plugins
-var gulp = require("gulp");
+var gulp = require('gulp');
 var $ = require('gulp-load-plugins')();
 
 var fs = require('fs');
-var args = require('yargs').argv;
 var rimraf = require('rimraf');
-var marked = require("swig-marked");
+var merge = require('merge-stream');
 var runSequence = require('run-sequence');
 
 // gulp config
@@ -18,8 +17,8 @@ var config = {
     static: 'public/static'
 };
 
-// per environment
-var isProduction = args.type === 'production';
+// in production tasks, we set this to true
+var isProduction = false;
 
 gulp.task('styles', function() {
     return gulp.src( config.assets + '/scss/**/*.scss' )
@@ -34,6 +33,8 @@ gulp.task('styles', function() {
 });
 
 // Optimize Images
+// NOTE: if you're on OSX and have any issues, run this in terminal:
+// `ulimit -S -n 2048`
 gulp.task('imagemin', function () {
     return gulp.src(config.assets + '/img/**/*')
         .pipe($.cache($.imagemin({
@@ -43,13 +44,21 @@ gulp.task('imagemin', function () {
     // rewrite images in place
     .pipe(gulp.dest(config.assets + '/img'))
     .pipe($.size({title: 'images'}))
-    // put into dev folder
-    .pipe(gulp.dest( config.output ))
 });
 
+//
 gulp.task('copy', function (cb) {
-    return gulp.src(config.assets + '/{img,js}/**/*')
-        .pipe(gulp.dest(config.output + '/'))
+    var images = gulp.src(config.assets + '/img/**/*')
+        .pipe(gulp.dest(config.output + '/img/'));
+
+    var scripts = gulp.src(config.assets + '/js/**/*')
+        .pipe(gulp.dest(config.output + '/js/'));
+
+    if (isProduction) {
+        return merge(images);
+    } else {
+        return merge(images, scripts);
+    }
 });
 
 // Static Site
@@ -65,11 +74,10 @@ gulp.task('templates', function (cb) {
             cache: false,
             locals: {
                 environment: 'development',
+                now: function () { return new Date(); }
             }
         },
-        setup: function(swig) {
-            marked.useTag(swig, 'markdown');
-        }
+        setup: function(swig) {}
     };
 
     // set production variable
@@ -95,31 +103,26 @@ gulp.task('templates', function (cb) {
         .pipe(gulp.dest( config.output ))
 });
 
-// process build blocks in markup, generate css/js
-gulp.task('html', ['styles', 'copy'], function (cb) {
-    var lazypipe = require('lazypipe');
-    var cssChannel = lazypipe()
-        .pipe($.csso);
-
+// dev JS will load the original scripts as specified in useref blog
+// production will minify and strip console.logs
+gulp.task('scripts', function() {
     return gulp.src( config.templates + '/layouts/_base.swig' )
         .pipe($.useref.assets({searchPath: '{assets,public}'}))
-        .pipe($.if('*.js', $.stripDebug()))
-        .pipe($.if('*.js', $.uglify()))
-        .pipe($.if('*.css', cssChannel()))
-        .pipe(gulp.dest( config.output ))
+        .pipe($.stripDebug())
+        .pipe($.uglify())
+        .pipe(gulp.dest( config.output ));
 });
 
 // loops through the generated html and replaces all references to static versions
 gulp.task('rev', function (cb) {
-    return gulp.src( config.output + '/{css,img,js}/*' )
+    return gulp.src( config.output + '/{css,img,js}/**/*' )
         .pipe($.rev())
         .pipe(gulp.dest( config.static ))
         .pipe($.rev.manifest())
         .pipe(gulp.dest( config.static ))
 });
 
-
-// dev and dist servers
+// local webserver
 
 gulp.task('connect', function () {
     $.connect.server({
@@ -150,11 +153,12 @@ gulp.task('watch', function() {
 });
 
 // build production files
-gulp.task('build', function (cb) {
-    runSequence('clean', 'html', 'rev', 'templates', cb);
+gulp.task('release', function (cb) {
+    isProduction = true;
+    runSequence('clean', ['copy', 'styles', 'scripts'], ['rev'], ['templates'], cb);
 });
 
 // local dev task
 gulp.task('default', function (cb) {
-    runSequence('clean', ['styles', 'imagemin'], ['html', 'templates'], ['watch', 'connect'], cb);
+    runSequence('clean', ['copy', 'styles'], ['templates'], ['watch', 'connect'], cb);
 });

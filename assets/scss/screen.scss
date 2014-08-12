@@ -1,1 +1,23 @@
-@import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap.scss";
+//
+// Boostrap
+//
+
+// Set any custom variables you might like
+$grid-gutter-width: 30px;
+
+// load boostrap sass, then our customization file
+// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap.scss";
+// @import "modules/_bootstrap-helpers.scss";
+
+//
+// Helpers
+//
+
+// @import "modules/breakpoints";
+
+//
+// Site specific
+//
+
+@import "defaults";
+@import "common";
