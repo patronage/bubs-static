@@ -1,64 +1,122 @@
 'use strict';
 
-// load plugins
+// load gulp and gulp plugins
 var gulp = require('gulp');
 var $ = require('gulp-load-plugins')();
 
-var fs = require('fs');
-var rimraf = require('rimraf');
-var merge = require('merge-stream');
-var runSequence = require('run-sequence');
 
-// gulp config
+// load node modules
+var del = require('del');
+var fs = require('fs');
+
+// others
+var runSequence = require('run-sequence');
+var browserSync = require('browser-sync');
+var yaml = require('js-yaml');
+var fm = require('front-matter');
+var _ = require('lodash');
+var marked = require('swig-marked');
+var extras = require('swig-extras');
+
+
+
+//
+// Gulp config
+//
+
+// Set defaults, allow for overrides from a custom local config file
+
+try {
+    var localConfig = require('./gulpconfig.json');
+} catch (err) {
+    var localConfig = {
+        bs: {
+            logLevel: "info",
+            tunnel: "",
+            open: false
+        }
+    };
+}
+
+// Defaults
+
 var config = {
     assets: 'assets',
     templates: 'templates',
-    output: 'public',
-    static: 'public/static'
+    output: 'public'
 };
 
 // in production tasks, we set this to true
 var isProduction = false;
 
-gulp.task('styles', function() {
-    return gulp.src( config.assets + '/scss/**/*.scss' )
-        .pipe($.sass({
-            style: 'compressed',
-            onError: function(err){
-                $.notify().write(err);
-            }
-        }))
-        .pipe($.autoprefixer('last 2 versions'))
-        .pipe(gulp.dest( config.output + '/css' ))
-});
+// Error Handling
 
-// Optimize Images
-// NOTE: if you're on OSX and have any issues, run this in terminal:
-// `ulimit -S -n 2048`
-gulp.task('imagemin', function () {
-    return gulp.src(config.assets + '/img/**/*')
-        .pipe($.cache($.imagemin({
-            progressive: true,
-            interlaced: true
-        })))
-    // rewrite images in place
-    .pipe(gulp.dest(config.assets + '/img'))
-    .pipe($.size({title: 'images'}))
-});
+var handleErrors = function() {
+    var args = Array.prototype.slice.call(arguments);
+
+    $.notify.onError({
+        title: 'Compile Error',
+        message: '<%= error.message %>'
+    }).apply(this, args);
+
+    if ( isProduction ) {
+        // Tell Travis to Stop Bro
+        process.exit(1);
+    }
+
+    this.emit('end');
+};
 
 //
-gulp.task('copy', function (cb) {
-    var images = gulp.src(config.assets + '/img/**/*')
-        .pipe(gulp.dest(config.output + '/img/'));
+// Gulp Tasks
+//
 
-    var scripts = gulp.src(config.assets + '/js/**/*')
-        .pipe(gulp.dest(config.output + '/js/'));
+gulp.task('styles', function() {
+    var sassOptions = {
+        outputStyle: 'expanded'
+    };
 
-    if (isProduction) {
-        return merge(images);
-    } else {
-        return merge(images, scripts);
+    var sourcemapsOptions = {
+        debug: false
     }
+
+    return gulp.src(config.assets + '/scss/*.scss')
+        .pipe($.sourcemaps.init())
+        .pipe($.sass(sassOptions).on('error', handleErrors))
+        .pipe($.autoprefixer('last 2 versions'))
+        .pipe($.sourcemaps.write(sourcemapsOptions))
+        .pipe($.if(isProduction, $.csso()))
+        .pipe(gulp.dest( config.output + '/css' ))
+        .pipe(browserSync.stream());
+});
+
+gulp.task('scripts', function() {
+    var assets = $.useref.assets({
+        searchPath: '{assets,public}'
+    });
+
+    return gulp.src( config.templates + '/layouts/_base.swig' )
+        .pipe(assets)
+        .pipe($.uglify())
+        .pipe($.if(isProduction, $.stripDebug()))
+        .pipe(gulp.dest( config.output ));
+});
+
+// copy unmodified files
+gulp.task('copy', function (cb) {
+    return gulp.src( config.assets + '/{img,fonts}/**/*', {base: config.assets})
+        .pipe($.changed( config.output ))
+        .pipe(gulp.dest( config.output ));
+});
+
+// loops through the generated html and replaces all references to static versions
+gulp.task('rev', function (cb) {
+    return gulp.src( config.dist + '/{css,js,fonts,img}/*' )
+        .pipe($.rev())
+        .pipe($.revCssUrl())
+        .pipe(gulp.dest( config.static ))
+        .pipe($.rev.manifest())
+        .pipe(gulp.dest( config.static ))
 });
 
 // Static Site
@@ -103,62 +161,48 @@ gulp.task('templates', function (cb) {
         .pipe(gulp.dest( config.output ))
 });
 
-// dev JS will load the original scripts as specified in useref blog
-// production will minify and strip console.logs
-gulp.task('scripts', function() {
-    return gulp.src( config.templates + '/layouts/_base.swig' )
-        .pipe($.useref.assets({searchPath: '{assets,public}'}))
-        .pipe($.stripDebug())
-        .pipe($.uglify())
-        .pipe(gulp.dest( config.output ));
-});
-
-// loops through the generated html and replaces all references to static versions
-gulp.task('rev', function (cb) {
-    return gulp.src( config.output + '/{css,img,js}/**/*' )
-        .pipe($.rev())
-        .pipe(gulp.dest( config.static ))
-        .pipe($.rev.manifest())
-        .pipe(gulp.dest( config.static ))
+// clean output directory
+gulp.task('clean', function () {
+    return del([
+        config.output
+    ]);
+    console.log('foo');
 });
 
 // local webserver
-
-gulp.task('connect', function () {
-    $.connect.server({
-        root: [config.output],
-        port: 9000,
-        livereload: true
+gulp.task('browser-sync', function() {
+    browserSync.init(null, {
+        server: {
+            baseDir: ["./public", "./templates"]
+        },
+        open: localConfig.bs.open,
+        tunnel: localConfig.bs.tunnel,
+        logLevel: localConfig.bs.logLevel
     });
 });
 
-// clean output directory
-gulp.task('clean', function (cb) {
-    rimraf(config.output, cb);
+gulp.task('watch', function() {
+    gulp.watch([config.templates + '/**/*.{twig,html}'], browserSync.reload);
+    gulp.watch([config.assets + '/scss/**/*.scss'], ['styles']);
+    // gulp.watch([config.assets + '/js/**/*.js'], ['scripts', browserSync.reload]);
+    gulp.watch([config.assets + '/{img,fonts,js}/**'], ['copy', browserSync.reload]);
+    gulp.watch( config.templates + '/**/*.{twig,md,yml}', ['templates', browserSync.reload]);
 });
 
-// watch and live reload
-gulp.task('watch', function() {
-    $.livereload.listen();
 
-    gulp.watch( config.output + '/**/*').on('change', $.livereload.changed);
-
-    gulp.watch( config.assets + '/**/*.js', ['scripts']);
-    gulp.watch( config.assets + '/scss/**/*.scss', ['styles']);
-    gulp.watch( config.templates + '/**/*.swig', ['templates']);
-
-    // note: this task will run twice as the image is saved in place kicking another watch event
-    gulp.watch( config.assets + '/img/**/*', ['imagemin']);
-
+gulp.task('prettify', function() {
+    gulp.src( config.output + '/**/*.html')
+        .pipe($.prettify({indent_size: 4}))
+        .pipe(gulp.dest( config.output ));
 });
 
 // build production files
 gulp.task('release', function (cb) {
     isProduction = true;
-    runSequence('clean', ['copy', 'styles', 'scripts'], ['rev'], ['templates'], cb);
+    runSequence('clean', ['copy', 'styles', 'scripts'], ['rev'], ['templates'], ['prettify'], cb);
 });
 
 // local dev task
 gulp.task('default', function (cb) {
-    runSequence('clean', ['copy', 'styles'], ['templates'], ['watch', 'connect'], cb);
+    runSequence('clean', ['copy', 'styles'], ['templates'], ['watch', 'browser-sync'], cb);
 });
