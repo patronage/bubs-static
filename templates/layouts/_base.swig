@@ -14,14 +14,23 @@
         {% endif %}
     </head>
     <body{% if body_id %} id="{{ body_id }}"{% endif %}{% if body_classes %} class="{{ body_classes }}"{% endif %}>
+        {# uncomment to debug #}
+        {#
+        <pre>
+            {{_ctx|json(4)}}
+        </pre>
+        #}
+
         <div id="page-wrap">
             <div class="container">
                 {% block content %}{% endblock %}
             </div>
         </div>
+
         <footer>
             <p>&copy; {{ now()|date('Y') }}</p>
         </footer>
+        
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
         <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
         {% if environment == "development" %}
