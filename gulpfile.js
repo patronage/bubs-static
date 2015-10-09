@@ -123,11 +123,17 @@ gulp.task('rev', function (cb) {
 // Static Site
 
 gulp.task('templates', function (cb) {
+
+    // load yaml files as global variables (also assign to opts.data in swig config)
+    var home = yaml.safeLoad(fs.readFileSync('./templates/data/home.yml', 'utf8'));
+
     // swig config
+
 
     var opts = {
         data: {
-            headline: "Welcome"
+            some_string: "",
+            home: home,
         },
         defaults: {
             cache: false,
