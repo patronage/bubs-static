@@ -43,7 +43,8 @@ try {
 var config = {
     assets: 'assets',
     templates: 'templates',
-    output: 'public'
+    output: 'public',
+    static: 'public/static'
 };
 
 // in production tasks, we set this to true
@@ -111,7 +112,7 @@ gulp.task('copy', function (cb) {
 
 // loops through the generated html and replaces all references to static versions
 gulp.task('rev', function (cb) {
-    return gulp.src( config.dist + '/{css,js,fonts,img}/*' )
+    return gulp.src( config.output + '/{css,js,fonts,img}/*' )
         .pipe($.rev())
         .pipe($.revCssUrl())
         .pipe(gulp.dest( config.static ))
@@ -182,11 +183,11 @@ gulp.task('browser-sync', function() {
 });
 
 gulp.task('watch', function() {
-    gulp.watch([config.templates + '/**/*.{twig,html}'], browserSync.reload);
+    gulp.watch([config.templates + '/**/*.{swig,html}'], browserSync.reload);
     gulp.watch([config.assets + '/scss/**/*.scss'], ['styles']);
     // gulp.watch([config.assets + '/js/**/*.js'], ['scripts', browserSync.reload]);
     gulp.watch([config.assets + '/{img,fonts,js}/**'], ['copy', browserSync.reload]);
-    gulp.watch( config.templates + '/**/*.{twig,md,yml}', ['templates', browserSync.reload]);
+    gulp.watch( config.templates + '/**/*.{swig,md,yml}', ['templates', browserSync.reload]);
 });
 
 
