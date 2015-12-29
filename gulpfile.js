@@ -6,7 +6,6 @@ var $ = require('gulp-load-plugins')();
 
 // load node modules
 var del = require('del');
-var fs = require('fs');
 
 // others
 var runSequence = require('run-sequence');
@@ -113,7 +112,7 @@ gulp.task('rev', function (cb) {
 });
 
 // Static Site task (tends to grow/customize a lot per site, so we load it in a separate file)
-gulp.task('templates', require('./gulpfile.staticsite.js')(gulp, $, isProduction, config));
+gulp.task('staticsite', require('./gulpfile.staticsite.js')(gulp, $, isProduction, config));
 
 // clean output directory
 gulp.task('clean', function () {
@@ -156,10 +155,10 @@ gulp.task('watch', function() {
 // build production files
 gulp.task('release', function (cb) {
     isProduction = true;
-    runSequence('clean', ['copy', 'styles', 'scripts'], ['rev'], ['templates'], ['prettify'], cb);
+    runSequence('clean', ['copy', 'styles', 'scripts'], ['rev'], ['staticsite'], ['prettify'], cb);
 });
 
 // local dev task
 gulp.task('default', function (cb) {
-    runSequence('clean', ['copy', 'styles'], ['templates'], ['watch', 'browser-sync'], cb);
+    runSequence('clean', ['copy', 'styles'], ['staticsite'], ['watch', 'browser-sync'], cb);
 });
