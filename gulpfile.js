@@ -4,7 +4,6 @@
 var gulp = require('gulp');
 var $ = require('gulp-load-plugins')();
 
-
 // load node modules
 var del = require('del');
 var fs = require('fs');
@@ -12,13 +11,6 @@ var fs = require('fs');
 // others
 var runSequence = require('run-sequence');
 var browserSync = require('browser-sync');
-var yaml = require('js-yaml');
-var fm = require('front-matter');
-var _ = require('lodash');
-var marked = require('swig-marked');
-var extras = require('swig-extras');
-
-
 
 //
 // Gulp config
@@ -120,60 +112,21 @@ gulp.task('rev', function (cb) {
         .pipe(gulp.dest( config.static ))
 });
 
-// Static Site
-
-gulp.task('templates', function (cb) {
-
-    // load yaml files as global variables (also assign to opts.data in swig config)
-    var home = yaml.safeLoad(fs.readFileSync('./templates/data/home.yml', 'utf8'));
-
-    // swig config
-
-
-    var opts = {
-        data: {
-            some_string: "",
-            home: home,
-        },
-        defaults: {
-            cache: false,
-            locals: {
-                environment: 'development',
-                now: function () { return new Date(); }
-            }
-        },
-        setup: function(swig) {}
-    };
-
-    // set production variable
-    if ( isProduction ) {
-        opts.defaults.locals.environment = 'production';
-    }
-
-    // set asset handling if manifest file exists
-    var manifestPath = './public/static/rev-manifest.json';
-    if (fs.existsSync(manifestPath)) {
-        var manifest = require(manifestPath);
-        opts.defaults.locals.rev = function(path) {
-            return '/static/' + manifest[path];
-        }
-    } else {
-        opts.defaults.locals.rev = function(path) {
-            return '/' + path;
-        }
-    }
-
-    return gulp.src( config.templates + '/*.swig')
-        .pipe($.swig(opts))
-        .pipe(gulp.dest( config.output ))
-});
+// Static Site task (tends to grow/customize a lot per site, so we load it in a separate file)
+gulp.task('templates', require('./gulpfile.staticsite.js')(gulp, $, isProduction, config));
 
 // clean output directory
 gulp.task('clean', function () {
     return del([
         config.output
     ]);
-    console.log('foo');
+});
+
+// cleanup final markup
+gulp.task('prettify', function() {
+    gulp.src( config.output + '/**/*.html')
+        .pipe($.prettify({indent_size: 4}))
+        .pipe(gulp.dest( config.output ));
 });
 
 // local webserver
@@ -196,12 +149,9 @@ gulp.task('watch', function() {
     gulp.watch( config.templates + '/**/*.{swig,md,yml}', ['templates', browserSync.reload]);
 });
 
-
-gulp.task('prettify', function() {
-    gulp.src( config.output + '/**/*.html')
-        .pipe($.prettify({indent_size: 4}))
-        .pipe(gulp.dest( config.output ));
-});
+//
+// Multi-step tasks
+//
 
 // build production files
 gulp.task('release', function (cb) {
