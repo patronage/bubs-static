@@ -1,23 +1,20 @@
-//
-// Boostrap
-//
+// Variables before bootstrap
+@import "variables";
+@import "modules/_bootstrap-loader";
 
-// Set any custom variables you might like
-$grid-gutter-width: 30px;
+// Modules and vendor files
+@import "modules/_bootstrap-multi-columns-row";
+@import "modules/_breakpoints";
+@import "modules/_triangle";
 
-// load boostrap sass, then our customization file
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap.scss";
-// @import "modules/_bootstrap-helpers.scss";
+// Reusable components
+@import "_global";
+@import "components/_buttons";
+@import "components/_type";
 
-//
-// Helpers
-//
+// Partial pieces of layouts
+@import "layouts/_header";
+@import "layouts/_footer";
 
-// @import "modules/breakpoints";
-
-//
-// Site specific
-//
-
-@import "defaults";
-@import "common";
+// Full pages
+@import "layouts/_page-home";

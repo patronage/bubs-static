@@ -1,0 +1,49 @@
+//
+// Before adding to here, make sure it doesn't actually belong somewhere else
+// Reusable global classes go here
+//
+
+//
+// Responsive image by default
+//
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+// Undo for google maps
+#map_canvas img, .google-maps img, .no-max img {
+    max-width: none;
+}
+
+// fixes layout issues with ad tracking pixels
+iframe[width="0"][height="0"] {
+    display: none;
+}
+
+// modules/sections and default spacing/styling
+.module {
+    padding-top: $module-spacing-mobile;
+    padding-bottom: $module-spacing-mobile;
+
+    @include sm-and-up {
+        padding-top: $module-spacing;
+        padding-bottom: $module-spacing;
+    }
+
+    &.bg-black {
+        background: $black;
+        color: $white;
+    }
+
+    &.bg-gray {
+        background: $gray;
+    }
+
+    &.bg-white {
+        background: $white;
+    }
+}
+
+
+
