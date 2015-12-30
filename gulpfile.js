@@ -6,10 +6,16 @@ var $ = require('gulp-load-plugins')();
 
 // load node modules
 var del = require('del');
+var fs = require('fs');
 
 // others
+var yaml = require('js-yaml');
+var minimist = require('minimist');
 var runSequence = require('run-sequence');
 var browserSync = require('browser-sync');
+
+var nunjucksModule = require('nunjucks');
+var dateFilter = require('nunjucks-date-filter');
 
 //
 // Gulp config
@@ -38,8 +44,16 @@ var config = {
     static: 'public/static'
 };
 
-// in production tasks, we set this to true
-var isProduction = false;
+// Set production or dev mode
+
+var argv = require('minimist')(process.argv.slice(2));
+Object.assign(config, argv);
+
+if ( config._[0] == "release" ) {
+    var isProduction = true;
+} else {
+    var isProduction = false;
+}
 
 // Error Handling
 
@@ -83,14 +97,14 @@ gulp.task('styles', function() {
 });
 
 gulp.task('scripts', function() {
-    var assets = $.useref.assets({
-        searchPath: '{assets,public}'
-    });
+    var userefOpts = {
+        searchPath: './assets'
+    };
 
-    return gulp.src( config.templates + '/layouts/_base.swig' )
-        .pipe(assets)
-        .pipe($.uglify())
-        .pipe($.if(isProduction, $.stripDebug()))
+    return gulp.src( config.templates + '/layouts/_base.html' )
+        .pipe($.useref(userefOpts))
+        // .pipe($.uglify().on('error', handleErrors))
+        // .pipe($.if(isProduction, $.stripDebug()))
         .pipe(gulp.dest( config.output ));
 });
 
@@ -111,8 +125,46 @@ gulp.task('rev', function (cb) {
         .pipe(gulp.dest( config.static ))
 });
 
-// Static Site task (tends to grow/customize a lot per site, so we load it in a separate file)
-gulp.task('staticsite', require('./gulpfile.staticsite.js')(gulp, $, isProduction, config));
+gulp.task('staticsite', function (cb) {
+
+    var home = yaml.safeLoad(fs.readFileSync('./templates/data/home.yml', 'utf8'));
+
+    var data = {
+        test_string: "foo bar",
+        now: Date.now(),
+        home: home,
+    };
+
+    // Customize Nunjucks
+    var nunjucksEnv = new nunjucksModule.Environment([
+        new nunjucksModule.FileSystemLoader('templates')
+    ]);
+    nunjucksEnv.addFilter('date', dateFilter);
+
+    // set environment variable
+    if ( isProduction ) {
+        nunjucksEnv.addGlobal("environment", "production");
+    } else {
+        nunjucksEnv.addGlobal("environment", "development");
+    }
+
+    // set asset handling if manifest file exists
+    var manifestPath = './public/static/rev-manifest.json';
+    if (fs.existsSync(manifestPath)) {
+        var manifest = require(manifestPath);
+        nunjucksEnv.addGlobal('rev', path => '/static/' + manifest[path]);
+    } else {
+        nunjucksEnv.addGlobal('rev', path => '/' + path);
+    }
+
+    return gulp.src( config.templates + '/**/*.html')
+    // todo, filter out files that start with a `_`
+        .pipe($.nunjucks.compile(data, {
+            env: nunjucksEnv,
+            // noCache: true
+        }))
+        .pipe(gulp.dest( config.output ));
+});
 
 // clean output directory
 gulp.task('clean', function () {
@@ -122,9 +174,14 @@ gulp.task('clean', function () {
 });
 
 // cleanup final markup
-gulp.task('prettify', function() {
-    gulp.src( config.output + '/**/*.html')
-        .pipe($.prettify({indent_size: 4}))
+// todo: bug currently in this, it's not finding the index.html file
+gulp.task('prettify', function(cb) {
+    gulp.src( config.output + '/*.html')
+        .pipe($.debug({title: 'unicorn:'}))
+        .pipe($.prettify({
+            indent_size: 4,
+            max_preserve_newlines: 1
+        }))
         .pipe(gulp.dest( config.output ));
 });
 
@@ -132,7 +189,7 @@ gulp.task('prettify', function() {
 gulp.task('browser-sync', function() {
     browserSync.init(null, {
         server: {
-            baseDir: ["./public", "./templates"]
+            baseDir: ["./public", "./assets"]
         },
         open: localConfig.bs.open,
         tunnel: localConfig.bs.tunnel,
@@ -141,11 +198,10 @@ gulp.task('browser-sync', function() {
 });
 
 gulp.task('watch', function() {
-    gulp.watch([config.templates + '/**/*.{swig,html}'], browserSync.reload);
     gulp.watch([config.assets + '/scss/**/*.scss'], ['styles']);
     // gulp.watch([config.assets + '/js/**/*.js'], ['scripts', browserSync.reload]);
     gulp.watch([config.assets + '/{img,fonts,js}/**'], ['copy', browserSync.reload]);
-    gulp.watch( config.templates + '/**/*.{swig,md,yml}', ['templates', browserSync.reload]);
+    gulp.watch([config.templates + '/**/*.{html,md,yml}'], ['staticsite', browserSync.reload]);
 });
 
 //
@@ -154,7 +210,6 @@ gulp.task('watch', function() {
 
 // build production files
 gulp.task('release', function (cb) {
-    isProduction = true;
     runSequence('clean', ['copy', 'styles', 'scripts'], ['rev'], ['staticsite'], ['prettify'], cb);
 });
 

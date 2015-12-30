@@ -8,46 +8,47 @@ var fm = require('front-matter');
 var marked = require('swig-marked');
 var extras = require('swig-extras');
 
+var nunjucksModule = require('nunjucks');
+var dateFilter = require('nunjucks-date-filter');
+
 module.exports = function (gulp, $, isProduction, config) {
+
     var home = yaml.safeLoad(fs.readFileSync('./templates/data/home.yml', 'utf8'));
 
-    // swig config
-    var opts = {
-        data: {
-            some_string: "",
-            home: home,
-        },
-        defaults: {
-            cache: false,
-            locals: {
-                environment: 'development',
-                now: function () { return new Date(); }
-            }
-        },
-        setup: function(swig) {}
+    var data = {
+        test_string: "foo bar",
+        now: Date.now(),
+        home: home,
     };
 
-    // set production variable
+    // Customize Nunjucks
+    var nunjucksEnv = new nunjucksModule.Environment([
+        new nunjucksModule.FileSystemLoader('templates')
+    ]);
+    nunjucksEnv.addFilter('date', dateFilter);
+
+    // set environment variable
     if ( isProduction ) {
-        opts.defaults.locals.environment = 'production';
+        nunjucksEnv.addGlobal("environment", "production");
+    } else {
+        nunjucksEnv.addGlobal("environment", "development");
     }
 
     // set asset handling if manifest file exists
     var manifestPath = './public/static/rev-manifest.json';
     if (fs.existsSync(manifestPath)) {
         var manifest = require(manifestPath);
-        opts.defaults.locals.rev = function(path) {
-            return '/static/' + manifest[path];
-        }
+        nunjucksEnv.addGlobal('rev', path => '/static/' + manifest[path]);
     } else {
-        opts.defaults.locals.rev = function(path) {
-            return '/' + path;
-        }
+        nunjucksEnv.addGlobal('rev', path => '/' + path);
     }
 
     return function () {
-        gulp.src( config.templates + '/*.swig')
-            .pipe($.swig(opts))
+        gulp.src( config.templates + '/*.html')
+            .pipe($.nunjucks.compile(data, {
+                env: nunjucksEnv,
+                noCache: true
+            }))
             .pipe(gulp.dest( config.output ));
     };
 };
