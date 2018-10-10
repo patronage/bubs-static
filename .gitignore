@@ -1,24 +1,4 @@
-#### development-environment
-/tmp/
-/dev/
-/_data/
-/gulpconfig.json
-*.sublime-*
-
-#### Build
-.sass-cache
 node_modules
-/composer/
-assets/vendor/
-npm-debug.log
-
-# production
-/public/
-/public/static/
-/dist/
-
-# system
-.DS_Store*
-ehthumbs.db
-Icon?
-Thumbs.db
+dist
+functions
+yarn-error.log

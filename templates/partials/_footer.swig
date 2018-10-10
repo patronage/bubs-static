@@ -1,3 +1,0 @@
-<footer>
-    <p>&copy; {{ now()|date('Y') }}</p>
-</footer>

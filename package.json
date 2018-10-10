@@ -1,52 +1,61 @@
 {
-  "name": "bubs-static",
-  "version": "0.0.0",
-  "description": "node reqs to generate",
-  "private": "true",
-  "repository": "",
-  "author": "",
-  "license": "BSD",
-  "engines": {
-    "node": "~0.12"
-  },
+  "name": "EleventyOne",
+  "version": "1.0.1",
+  "description": "A project bootstrap for Eleventy sites. With pipelines for Sass, Js, and Lambdas",
+  "author": "Phil Hawksworth",
+  "license": "MIT",
   "scripts": {
-    "start": "node index.js"
+    "gen": "gulp generate",
+    "start": "yarn run build && yarn run serve",
+    "build": "gulp build && yarn run build:functions",
+    "build:local": "gulp build:local",
+    "build:functions": "netlify-lambda build src/lambda",
+    "serve": "gulp watch & gulp serve & netlify-lambda serve src/lambda"
   },
-  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/philhawksworth/eleventyone"
+  },
+  "dependencies": {
+    "@11ty/eleventy": "^0.5.3",
+    "bootstrap": "^4.1.3",
+    "browser-sync": "^2.26.0",
+    "concurrent-transform": "^1.0.0",
+    "del": "^3.0.0",
+    "gravatar": "^1.6.0",
+    "gulp": "^4.0.0",
+    "gulp-autoprefixer": "^6.0.0",
+    "gulp-clean": "^0.4.0",
+    "gulp-concat": "^2.6.1",
+    "gulp-csso": "^3.0.1",
+    "gulp-exec": "^3.0.2",
+    "gulp-if": "^2.0.2",
+    "gulp-image-resize": "^0.13.0",
+    "gulp-load-plugins": "^1.5.0",
+    "gulp-notify": "^3.2.0",
+    "gulp-prettify": "^0.5.0",
+    "gulp-rename": "^1.3.0",
+    "gulp-sass": "^3.1.0",
+    "gulp-serve": "^1.4.0",
+    "gulp-sourcemaps": "^2.6.4",
+    "gulp-strip-debug": "^3.0.0",
+    "gulp-uglify": "^3.0.0",
+    "netlify-lambda": "^0.2.0",
+    "pump": "^3.0.0",
+    "require-dir": "^1.0.0",
+    "run-sequence": "^2.2.1"
+  },
+  "proxy": {
+    "/.netlify/functions": {
+      "target": "http://localhost:9000",
+      "pathRewrite": {
+        "^/\\.netlify/functions": ""
+      }
+    }
+  },
   "devDependencies": {
-    "browser-sync": "~2.9.8",
-    "del": "~2.0.2",
-    "front-matter": "^1.0.0",
-    "gulp": "~3.9.0",
-    "gulp-autoprefixer": "~3.0.2",
-    "gulp-cache": "~0.3.0",
-    "gulp-changed": "~1.3.0",
-    "gulp-csso": "~1.0.0",
-    "gulp-data": "~1.2.0",
-    "gulp-debug": "~2.1.0",
-    "gulp-if": "~2.0.0",
-    "gulp-imagemin": "~2.3.0",
-    "gulp-insert": "^0.5.0",
-    "gulp-livereload": "~3.8.1",
-    "gulp-load-plugins": "~1.0.0-rc",
-    "gulp-markdown": "^1.0.0",
-    "gulp-minify-css": "~1.2.1",
-    "gulp-notify": "~2.2.0",
-    "gulp-prettify": "^0.3.0",
-    "gulp-rename": "^1.2.2",
-    "gulp-rev": "~6.0.1",
-    "gulp-rev-css-url": "0.1.0",
-    "gulp-sass": "^2.0.4",
-    "gulp-sourcemaps": "~1.6.0",
-    "gulp-strip-debug": "~1.0.2",
-    "gulp-swig": "^0.7.4",
-    "gulp-uglify": "~1.4.1",
-    "gulp-useref": "~1.3.0",
-    "gulp-util": "~3.0.6",
-    "js-yaml": "^3.4.2",
-    "lodash": "^3.10.1",
-    "run-sequence": "~1.1.4",
-    "swig-extras": "0.0.1",
-    "swig-marked": "0.0.1"
+    "@mightyplow/eleventy-plugin-cache-buster": "^1.1.3",
+    "babel-preset-env": "^1.7.0",
+    "babel-register": "^6.26.0"
   }
 }
