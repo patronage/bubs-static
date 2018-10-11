@@ -9,7 +9,6 @@ const $ = plugins();
 import del from 'del';
 import { exec } from 'child_process';
 import pump from 'pump';
-import async from 'async';
 
 // others
 import browserSync from 'browser-sync';
