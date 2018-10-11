@@ -1,4 +1,4 @@
-//const cacheBuster = require('@mightyplow/eleventy-plugin-cache-buster');
+const cacheBuster = require('@mightyplow/eleventy-plugin-cache-buster');
 
 module.exports = function(config) {
 
@@ -8,9 +8,12 @@ module.exports = function(config) {
   config.addFilter("squash", require("./filters/squash.js") );
   
   //config.addPassthroughCopy("src/img", "img");
+  
   //add versioning to assets
-  //const cacheBusterOptions = {};
-  //config.addPlugin(cacheBuster(cacheBusterOptions));
+  const cacheBusterOptions = {
+    outputDirectory: 'dist'
+  };
+  config.addPlugin(cacheBuster(cacheBusterOptions));
 
   return {
     dir: {
