@@ -8,6 +8,8 @@ const $ = plugins();
 // load node modules
 import del from 'del';
 import { exec } from 'child_process';
+import pump from 'pump';
+import async from 'async';
 
 // others
 import browserSync from 'browser-sync';
@@ -26,7 +28,9 @@ try {
           logLevel: "info",
           tunnel: "",
           open: false
-      }
+      },
+      imgWidths: [400,1000],
+      doResize: true
   };
 }
 
@@ -42,29 +46,11 @@ const config = {
 // in production tasks, we set this to true
 let isProduction = false;
 
-// Error Handling
-
-export function handleErrors() {
-    var args = Array.prototype.slice.call(arguments);
-
-    $.notify.onError({
-        title: 'Compile Error',
-        message: '<%= error.message %>'
-    }).apply(this, args);
-
-    if ( isProduction ) {
-        // Tell Travis to Stop Bro
-        process.exit(1);
-    }
-
-    this.emit('end');
-};
-
 //
 // Gulp Tasks
 //
 
-export function styles() {
+export function styles(cb) {
   var sassOptions = {
       outputStyle: 'expanded'
   };
@@ -72,33 +58,56 @@ export function styles() {
   var sourcemapsOptions = {
       debug: false
   }
-
-  return gulp.src( config.assets + '/scss/*.scss')
-      .pipe($.sourcemaps.init())
-      .pipe($.sass(sassOptions).on('error', handleErrors))
-      .pipe($.autoprefixer('last 2 versions'))
-      .pipe($.sourcemaps.write(sourcemapsOptions))
-      .pipe($.if(isProduction, $.csso()))
-      .pipe(gulp.dest( config.output + '/css' ))
-      .pipe(browserSync.stream());
+      pump([ gulp.src( config.assets + '/scss/*.scss'),
+      $.sourcemaps.init(),
+      $.sass(sassOptions),
+      $.autoprefixer('last 2 versions'),
+      $.sourcemaps.write(sourcemapsOptions),
+      $.if(isProduction, $.csso()),
+      gulp.dest( config.output + '/css' ),
+      browserSync.stream()
+    ], cb);
 }
 
-export function scripts() {
-  return gulp.src( config.assets + "/js/**/*.js")
-      .pipe($.concat('main.js'))
-      .pipe($.uglify())
-      .pipe($.if(isProduction, $.stripDebug()))
-      .pipe(gulp.dest( config.output + '/js'));
+export function scripts(cb) {
+    pump([ gulp.src( config.assets + "/js/**/*.js"),
+      $.concat('main.js'),
+      $.uglify(),
+      $.if(isProduction, $.stripDebug()),
+      gulp.dest( config.output + '/js')
+    ], cb);
 }
 
-export const clean = () => del([config.output]);
+export function copy(cb) {
+    pump([ gulp.src(config.assets + '/{img,fonts}/**/*', {base: config.assets}),
+    $.newer(config.output),  
+    gulp.dest(config.output)
+    ], cb);
+}
+
+export function resize (cb) {
+    if(localConfig.doResize) {
+    localConfig.imgWidths.forEach(function(size) {
+    pump([gulp.src(config.assets + '/img/*'),
+        $.newer(config.output + '/img'),
+        $.gm(gmfile => gmfile.resize(size)),
+        $.rename(function (path) { path.basename += "-" + size; }),
+        gulp.dest(config.output + '/img')
+        ], cb);
+    });
+    } else {
+        return cb();
+    }
+}
+
+
 
 // cleanup final markup
-export function prettify(done) {
-  gulp.src( config.output + '/**/*.html')
-      .pipe($.prettify({indent_size: 4}))
-      .pipe(gulp.dest( config.output ));
-  done();
+export function prettify(cb) {
+  pump([gulp.src( config.output + '/**/*.html'),
+      $.prettify({indent_size: 4}),
+      gulp.dest( config.output )
+    ], cb);
 }
 
 //run eleventy shell command to generate files
@@ -111,7 +120,7 @@ export function generate(cb) {
 }
 
 // local webserver
-export function serve(done) {
+export function bs(done) {
   browserSync.init({
       server: {
           baseDir: "./dist"
@@ -123,30 +132,31 @@ export function serve(done) {
   done();
 }
 
-export function reload(done) {
-  browserSync.reload();
+export function watch(done) {
+  gulp.watch(config.templates + '/**/*.{md,njk,json}', gulp.series(generate, reload));
+  gulp.watch(config.assets + '/scss/**/*.scss', styles);
+  gulp.watch(config.assets + '/js/**/*.js', gulp.series(scripts, reload));
+  gulp.watch(config.assets + '/{img,fonts}/**', gulp.series(resize, copy, reload));
   done();
 }
 
-export function watch() {
-  gulp.watch(config.templates + '/**/*.{md,njk,json}', gulp.series('generate', 'reload'));
-  gulp.watch(config.assets + '/scss/**/*.scss', gulp.parallel('styles'));
-  gulp.watch(config.assets + '/js/**/*.js', gulp.parallel('scripts', 'reload'));
-  //gulp.watch([config.assets + '/{img,fonts,js}/**'], ['copy', browserSync.reload]);
-  //gulp.watch( config.templates + '/**/*.{swig,md,yml}', ['templates', browserSync.reload]);
-}
+export const clean = () => del([config.output]);
 
-export function production(done) {
-    isProduction = true;
+export const reload = done => {
+    browserSync.reload();
     done();
 }
 
-//
-// Multi-step tasks
-//
+export const release = done => {
+    isProduction = true;
+    compile();
+    done();
+}
 
-// build production files
-gulp.task('release', gulp.series(production, clean, styles, scripts, generate, prettify));
+const compile = gulp.series(clean, styles, scripts, resize, copy, generate, prettify)
 
-// local dev task
-gulp.task('default', gulp.series(clean, styles, scripts, generate, serve, watch));
+const serve = gulp.series(compile, bs)
+
+const defaultTasks = gulp.parallel(serve, watch)
+
+export default defaultTasks

@@ -6,7 +6,8 @@ module.exports = function(config) {
   config.addFilter("dateDisplay", require("./filters/dates.js") );
   config.addFilter("timestamp", require("./filters/timestamp.js") );
   config.addFilter("squash", require("./filters/squash.js") );
-
+  
+  //config.addPassthroughCopy("src/img", "img");
   //add versioning to assets
   //const cacheBusterOptions = {};
   //config.addPlugin(cacheBuster(cacheBusterOptions));
@@ -15,11 +16,13 @@ module.exports = function(config) {
     dir: {
       input: "src/site",
       output: "dist",
-      includes: "_includes"
+      includes: "_includes",
+      data: "_data"
     },
     templateFormats : ["njk", "md"],
     htmlTemplateEngine : "njk",
-    markdownTemplateEngine : "njk"
+    markdownTemplateEngine : "njk",
+    passthroughFileCopy: true
   };
 
 };
