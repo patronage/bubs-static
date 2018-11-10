@@ -124,9 +124,9 @@ export function bs(done) {
       server: {
           baseDir: "./dist"
       },
-      open: localConfig.bs.open,
-      tunnel: localConfig.bs.tunnel,
-      logLevel: localConfig.bs.logLevel
+      open: localConfig.bs.open || true,
+      tunnel: localConfig.bs.tunnel || false,
+      logLevel: localConfig.bs.logLevel || 'info'
   });
   done();
 }
