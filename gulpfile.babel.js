@@ -9,6 +9,7 @@ const $ = plugins();
 import del from 'del';
 import { exec } from 'child_process';
 import pump from 'pump';
+import beeper from 'beeper';
 
 // others
 import browserSync from 'browser-sync';
@@ -37,13 +38,43 @@ try {
 
 const config = {
   assets: 'src',
-  templates: 'src/site',
+  templates: 'src/site/_includes',
   output: 'dist',
   static: 'public/static'
 };
 
 // in production tasks, we set this to true
 let isProduction = false;
+
+// Error Handling
+
+var handleErrors = err => {
+    // special variables for uglify
+    if ( err.cause ){
+        err.message = err.cause.message;
+        err.line = err.cause.line;
+        err.column = err.cause.col;
+    }
+
+    // notifications
+    if (err.line && err.column) {
+        var notifyMessage = 'LINE ' + err.line + ':' + err.column + ' -- ';
+    } else {
+        var notifyMessage = '';
+    }
+
+    $.notify({
+        title: 'FAIL: ' + err.plugin,
+        message: notifyMessage + err.message,
+    }).write(err);
+
+    beeper(); // System beep
+
+    // Tell Travis to FAIL
+    if ( isProduction ) {
+        process.exit(1);
+    }
+};
 
 //
 // Gulp Tasks
@@ -65,16 +96,44 @@ export function styles(cb) {
       $.if(isProduction, $.csso()),
       gulp.dest( config.output + '/css' ),
       browserSync.stream()
-    ], cb);
+    ], err => {
+        if (err) {
+          handleErrors(err);  
+          return cb();
+        } else {
+          return cb();
+        }
+      });
 }
 
 export function scripts(cb) {
-    pump([ gulp.src( config.assets + "/js/**/*.js"),
-      $.concat('main.js'),
-      $.uglify(),
-      $.if(isProduction, $.stripDebug()),
-      gulp.dest( config.output + '/js')
-    ], cb);
+
+    const uglifyOptions = {
+        mangle: false,
+        compress: {
+            drop_console: true
+        }
+    };
+
+    const rename = path => {
+        path.dirname = "js";
+    }
+
+    pump([ gulp.src( config.templates + '/layouts/base.njk' ),
+        $.useref({ searchPath: config.assets, noconcat: true }),
+        $.filter(['**', '!**/base.njk'], {'restore': true}),
+        $.rename(rename),
+        $.uglify(uglifyOptions),
+        $.if(isProduction, $.stripDebug()),
+        gulp.dest( config.output )
+    ], err => {
+        if (err) {
+          handleErrors(err);  
+          return cb();
+        } else {
+          return cb();
+        }
+      });
 }
 
 export function copy(cb) {
