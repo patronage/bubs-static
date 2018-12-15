@@ -131,6 +131,9 @@ export function scripts(cb) {
       }}),
         $.rename(renameOptions),
         $.if('*.js', $.uglify(uglifyOptions)),
+        $.if('*.js', $.babel({
+            presets: ['@babel/env']
+        })),
         $.if('*.js', gulp.dest( config.output ))
     ], err => {
         if (err) {
