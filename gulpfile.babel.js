@@ -38,13 +38,16 @@ try {
 
 const config = {
   assets: 'src',
-  templates: 'src/site/_includes',
+  templates: 'src/site',
   output: 'dist',
   static: 'public/static'
 };
 
 // in production tasks, we set this to true
 let isProduction = false;
+
+// debug Eleventy
+let isDebug = false;
 
 // Error Handling
 
@@ -108,33 +111,36 @@ export function styles(cb) {
 
 export function scripts(cb) {
 
-    const uglifyOptions = {
-        mangle: false,
-        compress: {
-            drop_console: true
-        }
-    };
-
-    const rename = path => {
-        path.dirname = "js";
+    const renameOptions = path => {
+      if (path.dirname.includes('node_modules')) {
+        path.dirname = path.dirname.replace('node_modules', 'layouts/js/vendor');
+      }
+      path.dirname = config.templates + path.dirname;
     }
-
-    pump([ gulp.src( config.templates + '/layouts/base.njk' ),
-        $.useref({ searchPath: config.assets, noconcat: true }),
-        $.filter(['**', '!**/base.njk'], {'restore': true}),
-        $.rename(rename),
-        $.uglify(uglifyOptions),
-        $.if(isProduction, $.stripDebug()),
-        gulp.dest( config.output )
+    
+    var uglifyOptions = {
+      mangle: false,
+      compress: {
+        //drop_console: true
+      }
+    };
+    
+    pump([ gulp.src( config.templates + '/_includes/layouts/base.njk' ),
+        $.useref({ searchPath: [config.assets, '../node_modules'], noconcat: true, transformPath: function(filePath) {
+          return filePath.replace('/js/vendor','../node_modules')
+      }}),
+        $.rename(renameOptions),
+        $.if('*.js', $.uglify(uglifyOptions)),
+        $.if('*.js', gulp.dest( config.output ))
     ], err => {
         if (err) {
-          handleErrors(err);  
+          handleErrors(err);
           return cb();
         } else {
           return cb();
         }
       });
-}
+    }
 
 export function copy(cb) {
     pump([ gulp.src(config.assets + '/{img,fonts}/**/*', {base: config.assets}),
@@ -158,8 +164,6 @@ export function resize (cb) {
     }
 }
 
-
-
 // cleanup final markup
 export function prettify(cb) {
   pump([gulp.src( config.output + '/**/*.html'),
@@ -170,12 +174,19 @@ export function prettify(cb) {
 
 //run eleventy shell command to generate files
 export function generate(cb) {
-  exec('eleventy', function (err, stdout, stderr) {
-    console.log(stdout);
-    console.log(stderr);
-    cb(err);
-  });
-}
+    let runEleventy = 'eleventy';
+    if (isDebug) {
+      runEleventy = 'DEBUG=Eleventy* eleventy';
+    }
+    exec(runEleventy, function(err, stdout, stderr) {
+      console.log(stdout);
+      console.log(stderr);
+      if(stderr && isProduction) {
+          process.exit(1);
+      }
+      cb(err);
+    });
+  }
 
 // local webserver
 export function bs(done) {
@@ -183,6 +194,7 @@ export function bs(done) {
       server: {
           baseDir: "./dist"
       },
+      notify: false,
       open: localConfig.bs.open || true,
       tunnel: localConfig.bs.tunnel || false,
       logLevel: localConfig.bs.logLevel || 'info'
@@ -211,10 +223,14 @@ export const release = done => {
     done();
 }
 
+export const debug = done => {
+    isDebug = true;
+    defaultTasks();
+    done();
+  }
+
 const compile = gulp.series(clean, styles, scripts, resize, copy, generate, prettify)
-
 const serve = gulp.series(compile, bs)
-
 const defaultTasks = gulp.parallel(serve, watch)
 
 export default defaultTasks
