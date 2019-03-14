@@ -120,9 +120,7 @@ export function scripts(cb) {
     
     var uglifyOptions = {
       mangle: false,
-      compress: {
-        //drop_console: true
-      }
+      compress: false
     };
     
     pump([ gulp.src( config.templates + '/_includes/layouts/base.njk' ),
